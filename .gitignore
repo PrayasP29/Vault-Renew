@@ -1,8 +1,93 @@
+# Dependencies
 node_modules/
-.env
-.expo/
+client/node_modules/
+server/node_modules/
+
+# Build output
 dist/
 build/
-uploads/*
+client/dist/
+client/.vite/
+server/dist/
+
+# Environment - secrets (keep .env.example)
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+!.env.example
+client/.env
+client/.env.local
+client/.env.development
+client/.env.production
+client/.env.*.local
+!client/.env.example
+server/.env
+server/.env.local
+server/.env.development
+server/.env.production
+server/.env.*.local
+!server/.env.example
+
+# Firebase / cloud credentials
+server/credentials/
+*service-account*.json
+*firebase-adminsdk*.json
+*serviceAccountKey*.json
+
+# Uploaded user files
 server/uploads/*
 !server/uploads/.gitkeep
+uploads/*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage / test output
+coverage/
+client/coverage/
+server/coverage/
+.nyc_output/
+test-results/
+client/.cache/
+server/.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.pid
+
+# Tooling / local config
+.agents/
+skills-lock.json
+
+# Expo (legacy, harmless)
+.expo/
+
+# Temporary test artifacts
+/invoice.pdf
+/invoice.png
+/server/stage*.mjs
