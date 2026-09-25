@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Reveal from "./Reveal.jsx";
 
 // bundui/faq1 adapted — single-open accordion, minimal
 const FAQS = [
@@ -14,20 +15,22 @@ export default function FAQ() {
   const [open, setOpen] = useState(0);
   return (
     <section id="faq" className="mx-auto max-w-[880px] px-4 sm:px-6 py-12 sm:py-16">
-      <div className="text-center">
+      <Reveal className="text-center">
         <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] tracking-widest text-white/60">FAQ</div>
         <h2 className="mt-3 text-[26px] sm:text-[32px] font-semibold tracking-tight text-white">Straight answers.</h2>
         <p className="mt-2 text-[14px] text-white/60">No corporate filler. Just how Vault-Renew actually works.</p>
-      </div>
+      </Reveal>
       <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur divide-y divide-white/10 overflow-hidden">
         {FAQS.map((f, i) => (
-          <div key={f.q} className="p-0">
-            <button onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.04] transition">
-              <span className="text-[14px] font-medium text-white">{f.q}</span>
-              <span className={`h-6 w-6 rounded-full border grid place-items-center text-[11px] shrink-0 transition ${open === i ? "bg-white text-zinc-900 border-white" : "border-white/15 text-white/60"}`}>{open === i ? "−" : "+"}</span>
-            </button>
-            {open === i && <div className="px-5 pb-4 text-[13px] leading-6 text-white/60 -mt-1">{f.a}</div>}
-          </div>
+          <Reveal key={f.q} delay={i * 70}>
+            <div className="p-0">
+              <button onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.04] transition">
+                <span className="text-[14px] font-medium text-white">{f.q}</span>
+                <span className={`h-6 w-6 rounded-full border grid place-items-center text-[11px] shrink-0 transition ${open === i ? "bg-white text-zinc-900 border-white" : "border-white/15 text-white/60"}`}>{open === i ? "−" : "+"}</span>
+              </button>
+              {open === i && <div className="px-5 pb-4 text-[13px] leading-6 text-white/60 -mt-1">{f.a}</div>}
+            </div>
+          </Reveal>
         ))}
       </div>
     </section>
