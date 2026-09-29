@@ -1,28 +1,34 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const nav = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  // already signed in -> straight to the dashboard, no login bounce
+  if (!authLoading && isAuthenticated) {
+    return <Navigate to={location.state?.from || "/dashboard"} replace />;
+  }
 
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
     if (!email || !password) return setErr("Email and password are required.");
-    setLoading(true);
+    setBusy(true);
     try {
       await login(email.trim(), password);
-      nav("/upload");
+      nav(location.state?.from || "/dashboard", { replace: true });
     } catch (e2) {
       const msg = e2.response?.data?.message || e2.message || "Login failed";
       setErr(msg);
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
@@ -62,8 +68,8 @@ export default function Login() {
                 <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-900" />
               </div>
               {err && <div className="rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
-              <button disabled={loading} className="w-full rounded-full bg-zinc-900 text-white py-3 text-sm font-semibold hover:bg-zinc-800 disabled:opacity-50">
-                {loading ? "Signing in…" : "Sign in"}
+              <button disabled={busy} className="w-full rounded-full bg-zinc-900 text-white py-3 text-sm font-semibold hover:bg-zinc-800 disabled:opacity-50">
+                {busy ? "Signing in…" : "Sign in"}
               </button>
               <div className="text-center text-xs text-zinc-500">
                 No account? <Link to="/signup" className="font-medium text-zinc-900 underline">Sign up</Link> · <Link to="/verify-email" className="underline">Verify email</Link>

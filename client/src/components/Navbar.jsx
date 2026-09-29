@@ -76,8 +76,11 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link to="/upload" className="px-4 py-2 rounded-full text-[13px] font-medium bg-zinc-900 text-white hover:bg-zinc-800">
+                <Link to="/dashboard" className="px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-700 hover:bg-zinc-50">
                   Dashboard
+                </Link>
+                <Link to="/upload" className="px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+                  Upload
                 </Link>
                 <button onClick={logout} className="px-4 py-2 rounded-full text-[13px] font-medium text-zinc-600 hover:bg-zinc-100">
                   Logout

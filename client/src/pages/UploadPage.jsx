@@ -141,6 +141,9 @@ export default function UploadPage() {
                 <div className="text-xs tracking-widest text-white/50">EXTRACTED & SAVED</div>
                 <div className="mt-2 text-sm font-semibold">{subscription.name} · {subscription.currency} {subscription.amount}</div>
                 <div className="text-xs text-white/60 mt-1">Renews {new Date(subscription.renewalDate).toLocaleDateString()} · {subscription.billingCycle} · {subscription.category}</div>
+                <Link to="/dashboard" className="mt-3 inline-flex rounded-full bg-white text-zinc-900 px-4 py-2 text-xs font-semibold">
+                  View in dashboard →
+                </Link>
               </div>
             )}
           </div>
