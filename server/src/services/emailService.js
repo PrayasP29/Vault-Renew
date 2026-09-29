@@ -3,15 +3,7 @@ import { Resend } from "resend";
 export const sendVerificationEmail = async (to, rawToken) => {
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${rawToken}`;
 
-  // ponytail: mock when RESEND_API_KEY missing (dev without key), strict send when key present; sync file for test capture (buffered stdout fix)
-  const logLine = `[email] to=${to} verifyUrl=${verifyUrl}`;
-  try {
-    const fs = await import("fs");
-    fs.appendFileSync("C:\\Users\\praya\\AppData\\Local\\Temp\\opencode\\email_verify.log", logLine + "\n");
-  } catch {}
-  // unbuffered via stderr
-  console.error(logLine);
-
+  // ponytail: mock when RESEND_API_KEY missing (dev without key), strict send when key present
   if (!process.env.RESEND_API_KEY) {
     return;
   }

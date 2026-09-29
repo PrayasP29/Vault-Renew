@@ -27,6 +27,11 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
 export const register = async (req, res) => {
   try {
     const { name, email, password } = registerSchema.parse(req.body);
@@ -298,6 +303,36 @@ export const refresh = async (req, res) => {
     return res.status(200).json({ success: true, accessToken: newAccessToken });
   } catch (error) {
     console.error("Refresh error:", error.message);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    // revoke the refresh token so every other session must sign in again
+    user.refreshToken = undefined;
+    await user.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed. Please log in again." });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, message: error.issues[0].message, errors: error.issues });
+    }
+    console.error("ChangePassword error:", error.message);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

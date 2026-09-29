@@ -8,6 +8,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import extractionRoutes from "./routes/extractionRoutes.js";
 import mongoose from "mongoose";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import reminderRoutes from "./routes/reminderRoutes.js";
 import devRoutes from "./routes/devRoutes.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminderScheduler.js";
 
@@ -30,6 +31,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/uploads", extractionRoutes);
 app.use("/api/notifications/devices", notificationRoutes);
+app.use("/api/reminders", reminderRoutes);
 app.use("/api/dev", devRoutes);
 
 const PORT = process.env.PORT || 5000;
