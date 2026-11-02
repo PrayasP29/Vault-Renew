@@ -1,4 +1,4 @@
-# Vault-Ren
+# Vault-Renew
 
 ## Subscription renewal reminders, with document-assisted setup
 
