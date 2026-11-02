@@ -2,11 +2,13 @@ import Reminder from "../models/Reminder.js";
 import Subscription from "../models/Subscription.js";
 import NotificationDevice from "../models/NotificationDevice.js";
 import { sendPushNotification } from "./pushNotificationService.js";
+import { rolloverDueSubscriptions } from "./reminderService.js";
+
+const LEASE_MS = 5 * 60 * 1000;
 
 let intervalHandle = null;
 let running = false;
 
-// ponytail: 1-min poll, no queue; use BullMQ/Redis if scale needs persistence
 function buildContent(subscription, type) {
   const name = subscription.name;
   const amount = subscription.amount;
@@ -28,7 +30,7 @@ async function processReminder(reminder) {
   console.log(`[ReminderScheduler] Processing reminder ${reminder._id}`);
   const now = new Date();
 
-  // load subscription with user isolation
+  // Load subscription with user isolation
   const subscription = await Subscription.findOne({
     _id: reminder.subscriptionId,
     userId: reminder.userId,
@@ -42,6 +44,7 @@ async function processReminder(reminder) {
         lastAttemptAt: now,
         nextRetryAt: null,
         failureReason: "subscription not found",
+        claimedAt: null,
       },
       $inc: { attempts: 1 },
     });
@@ -50,7 +53,6 @@ async function processReminder(reminder) {
   }
 
   if (subscription.status !== "active") {
-    // option B: scheduler ignores cancelled — mark as failed to avoid infinite pending loop
     await Reminder.findByIdAndUpdate(reminder._id, {
       $set: {
         status: "failed",
@@ -58,6 +60,7 @@ async function processReminder(reminder) {
         lastAttemptAt: now,
         nextRetryAt: null,
         failureReason: "subscription cancelled",
+        claimedAt: null,
       },
       $inc: { attempts: 1 },
     });
@@ -68,7 +71,6 @@ async function processReminder(reminder) {
   const devices = await NotificationDevice.find({ userId: reminder.userId, enabled: true });
 
   if (!devices.length) {
-    // no enabled devices -> retry logic
     const newAttempts = (reminder.attempts || 0) + 1;
     if (newAttempts === 1) {
       await Reminder.findByIdAndUpdate(reminder._id, {
@@ -77,6 +79,7 @@ async function processReminder(reminder) {
           lastAttemptAt: now,
           nextRetryAt: new Date(now.getTime() + 60 * 60 * 1000),
           failureReason: "no enabled devices",
+          claimedAt: null,
         },
         $inc: { attempts: 1 },
       });
@@ -89,6 +92,7 @@ async function processReminder(reminder) {
           lastAttemptAt: now,
           nextRetryAt: null,
           failureReason: "no enabled devices",
+          claimedAt: null,
         },
         $inc: { attempts: 1 },
       });
@@ -106,6 +110,7 @@ async function processReminder(reminder) {
   };
 
   let successCount = 0;
+  const acceptedMessageIds = [];
   let lastError = null;
 
   for (const dev of devices) {
@@ -117,7 +122,10 @@ async function processReminder(reminder) {
         body,
         data,
       });
-      if (result.success) successCount++;
+      if (result.success) {
+        successCount++;
+        if (result.messageId) acceptedMessageIds.push(result.messageId);
+      }
       else lastError = result.reason || "firebase-error";
     } catch (e) {
       lastError = e.message || "firebase-error";
@@ -132,10 +140,14 @@ async function processReminder(reminder) {
         lastAttemptAt: now,
         nextRetryAt: null,
         failureReason: null,
+        claimedAt: null,
       },
       $inc: { attempts: 1 },
     });
-    console.log(`[ReminderScheduler] Sent reminder ${reminder._id} to ${successCount} device(s)`);
+    console.log(
+      `[ReminderScheduler] Accepted by FCM reminder ${reminder._id} for ${successCount} device(s) ` +
+      `(messageIds: ${acceptedMessageIds.length})`
+    );
   } else {
     const reason = lastError || "all devices failed";
     const newAttempts = (reminder.attempts || 0) + 1;
@@ -146,6 +158,7 @@ async function processReminder(reminder) {
           lastAttemptAt: now,
           nextRetryAt: new Date(now.getTime() + 60 * 60 * 1000),
           failureReason: String(reason).slice(0, 500),
+          claimedAt: null,
         },
         $inc: { attempts: 1 },
       });
@@ -158,6 +171,7 @@ async function processReminder(reminder) {
           lastAttemptAt: now,
           nextRetryAt: null,
           failureReason: String(reason).slice(0, 500),
+          claimedAt: null,
         },
         $inc: { attempts: 1 },
       });
@@ -171,6 +185,37 @@ async function tick() {
   running = true;
   try {
     const now = new Date();
+
+    // 1. Reclaim stale leases
+    const staleCutoff = new Date(now.getTime() - LEASE_MS);
+    const staleList = await Reminder.find({
+      status: "processing",
+      claimedAt: { $lt: staleCutoff },
+    });
+
+    for (const stale of staleList) {
+      const newAttempts = (stale.attempts || 0) + 1;
+      await Reminder.findByIdAndUpdate(stale._id, {
+        $set: {
+          status: newAttempts >= 2 ? "failed" : "pending",
+          claimedAt: null,
+          lastAttemptAt: now,
+          ...(newAttempts >= 2
+            ? { failedAt: now, failureReason: "lease expired", nextRetryAt: null }
+            : { nextRetryAt: new Date(now.getTime() + 60 * 1000) }),
+        },
+        $inc: { attempts: 1 },
+      });
+    }
+
+    // 2. Rollover due subscriptions to next cycle
+    try {
+      await rolloverDueSubscriptions();
+    } catch (rollErr) {
+      console.error("[ReminderScheduler] rollover error:", rollErr.message);
+    }
+
+    // 3. Process eligible pending reminders
     const eligible = await Reminder.find({
       status: "pending",
       scheduledFor: { $lte: now },
@@ -181,18 +226,17 @@ async function tick() {
       try {
         const claimed = await Reminder.findOneAndUpdate(
           { _id: rem._id, status: "pending" },
-          { $set: { status: "processing" } },
+          { $set: { status: "processing", claimedAt: new Date() } },
           { new: true }
         );
         if (!claimed) continue;
         await processReminder(claimed);
       } catch (e) {
         console.error(`[ReminderScheduler] error processing ${rem._id}:`, e.message);
-        // revert processing to pending for retry if possible
         try {
           await Reminder.findOneAndUpdate(
             { _id: rem._id, status: "processing" },
-            { $set: { status: "pending" } }
+            { $set: { status: "pending", claimedAt: null } }
           );
         } catch {}
       }
@@ -207,7 +251,6 @@ async function tick() {
 export function startReminderScheduler() {
   if (intervalHandle) return intervalHandle;
   console.log("[ReminderScheduler] starting (interval 60s)");
-  // run soon after start, then every minute
   setTimeout(tick, 2000);
   intervalHandle = setInterval(tick, 60 * 1000);
   return intervalHandle;
@@ -221,5 +264,4 @@ export function stopReminderScheduler() {
   }
 }
 
-// for testing: expose tick and process
-export const _internal = { tick, processReminder, buildContent };
+export const _internal = { tick, processReminder, buildContent, LEASE_MS };

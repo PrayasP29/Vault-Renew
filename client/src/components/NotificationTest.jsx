@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { registerForPushNotifications, listenForForegroundMessages } from "../services/notificationService.js";
+import { registerForPushNotifications, listenForForegroundMessages, getNotificationPayload } from "../services/notificationService.js";
+import { API_URL } from "../services/api.js";
 
 function maskFid(fid) {
   if (!fid || fid.length <= 8) return "Not displayed in full";
   return `${fid.slice(0, 4)}...${fid.slice(-4)}`;
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function NotificationTest() {
   const [auth, setAuth] = useState(null); // { token, user }
@@ -21,7 +20,8 @@ export default function NotificationTest() {
 
   useEffect(() => {
     const unsub = listenForForegroundMessages((payload) => {
-      setForegroundMsg(payload);
+      const normalized = getNotificationPayload(payload);
+      setForegroundMsg({ ...payload, notification: normalized });
     });
     return () => {
       try { unsub && unsub(); } catch {}
@@ -32,7 +32,7 @@ export default function NotificationTest() {
     setAuthLoading(true);
     setStatus("Requesting test login...");
     try {
-      const res = await fetch(`${API_BASE}/api/dev/test-login`, { method: "POST" });
+      const res = await fetch(`${API_URL}/api/dev/test-login`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.accessToken) throw new Error(data.message || "test-login failed");
       setAuth({ token: data.accessToken, user: data.user });
@@ -61,7 +61,7 @@ export default function NotificationTest() {
         setStatus("FCM registered but not authenticated — click Get Test Login first");
         return;
       }
-      const res = await fetch(`${API_BASE}/api/notifications/devices`, {
+      const res = await fetch(`${API_URL}/api/notifications/devices`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,7 +97,7 @@ export default function NotificationTest() {
     setSending(true);
     setStatus("Sending...");
     try {
-      const res = await fetch(`${API_BASE}/api/dev/test-notification`, {
+      const res = await fetch(`${API_URL}/api/dev/test-notification`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

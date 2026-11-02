@@ -2,7 +2,7 @@ import Reveal from "./Reveal.jsx";
 
 export default function HowItWorks() {
   const steps = [
-    { n: "01", t: "Upload your invoice", d: "Drop a PNG, JPG, WEBP or PDF (up to 10MB). No cropping required — a screenshot works." },
+    { n: "01", t: "Upload your invoice", d: "Drop a PNG, JPG or WEBP image (up to 10MB). No cropping required — a screenshot works." },
     { n: "02", t: "Vault extracts the details", d: "Name, amount, renewal date and billing cycle are pulled automatically. You review before saving." },
     { n: "03", t: "Get reminded on time", d: "We schedule real push reminders 2 days and 1 day before renewal. You stay in control." },
   ];
@@ -30,7 +30,7 @@ export default function HowItWorks() {
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 text-[12px] text-white/50">
-          <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/> PDF extraction coming soon — images work today</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/> Image extraction supported — JPEG, PNG, WEBP</span>
           <span className="hidden sm:inline opacity-30">·</span>
           <span>10MB limit · Private to your account</span>
         </div>

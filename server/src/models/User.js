@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const refreshTokenHistorySchema = new mongoose.Schema(
+  {
+    hash: { type: String, required: true },
+    rotatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -31,6 +39,27 @@ const userSchema = new mongoose.Schema(
     },
     refreshToken: {
       type: String,
+    },
+    refreshTokenHistory: {
+      type: [refreshTokenHistorySchema],
+      default: [],
+    },
+    timezone: {
+      type: String,
+      default: "Asia/Kolkata",
+      trim: true,
+    },
+    uploadCount: {
+      type: Number,
+      default: 0,
+    },
+    uploadBytes: {
+      type: Number,
+      default: 0,
+    },
+    uploadUsageInitialized: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

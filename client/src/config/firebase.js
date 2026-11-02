@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging } from "firebase/messaging";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,5 +13,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const messaging = getMessaging(app);
+let messaging = null;
+try {
+  messaging = getMessaging(app);
+} catch {
+  // Unsupported browsers are reported by notificationService diagnostics.
+}
+
+export { messaging };
+export const firebaseMessagingSupported = () => isSupported();
 export default app;

@@ -15,13 +15,35 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages — show notification from FCM payload
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "Vault-Renew";
+  const title = payload.notification?.title || payload.data?.title || "Vault-Renew";
   const options = {
-    body: payload.notification?.body || "",
+    body: payload.notification?.body || payload.data?.body || "",
     icon: "/favicon.svg",
     data: payload.data || {},
+    tag: payload.data?.messageId || undefined,
   };
-  self.registration.showNotification(title, options);
+  return self.registration.getNotifications({ tag: options.tag }).then((existing) => {
+    if (existing.length === 0) return self.registration.showNotification(title, options);
+    return undefined;
+  });
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const target = new URL("/dashboard/reminders", self.location.origin).href;
+      const existing = clients.find((client) => "focus" in client);
+      if (existing) {
+        return existing.focus().then(() => existing.navigate?.(target));
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

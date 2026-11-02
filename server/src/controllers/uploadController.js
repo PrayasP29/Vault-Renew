@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 import fs from "fs";
 import path from "path";
 import Upload from "../models/Upload.js";
+import {
+  reserveUploadQuota,
+  releaseUploadQuota,
+  UploadQuotaError,
+} from "../services/uploadQuota.js";
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -19,7 +24,26 @@ const sanitize = (doc) => ({
 
 export const uploadFile = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ success: false, message: "File is required" });
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "File is required" });
+    }
+
+    try {
+      await reserveUploadQuota(req.user.userId, req.file.size);
+    } catch (quotaErr) {
+      if (req.file.path) {
+        fs.unlink(req.file.path, () => {});
+      }
+      if (quotaErr instanceof UploadQuotaError) {
+        return res.status(400).json({
+          success: false,
+          code: quotaErr.code,
+          message: quotaErr.message,
+        });
+      }
+      throw quotaErr;
+    }
+
     const doc = await Upload.create({
       userId: req.user.userId,
       originalName: req.file.originalname,
@@ -29,10 +53,16 @@ export const uploadFile = async (req, res) => {
       path: req.file.path,
       status: "uploaded",
     });
-    return res.status(201).json({ success: true, message: "File uploaded successfully", upload: sanitize(doc) });
+
+    return res.status(201).json({
+      success: true,
+      message: "File uploaded successfully",
+      upload: sanitize(doc),
+    });
   } catch (err) {
-    // cleanup orphan file if DB failed
-    if (req.file?.path) fs.unlink(req.file.path, () => {});
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
     console.error("uploadFile:", err.message);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -79,13 +109,17 @@ export const deleteUpload = async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ success: false, message: "Invalid upload ID" });
     const doc = await Upload.findOne({ _id: req.params.id, userId: req.user.userId });
     if (!doc) return res.status(404).json({ success: false, message: "Upload not found" });
+
     const abs = path.resolve(doc.path);
     try {
       await fs.promises.unlink(abs);
     } catch (e) {
-      if (e.code !== "ENOENT") throw e;
+      if (e.code !== "ENOENT") console.warn("Failed to delete file on disk:", e.message);
     }
+
     await Upload.deleteOne({ _id: doc._id });
+    await releaseUploadQuota(doc.userId, doc.size);
+
     return res.status(200).json({ success: true, message: "Upload deleted" });
   } catch (err) {
     console.error("deleteUpload:", err.message);

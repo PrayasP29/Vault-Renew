@@ -4,6 +4,7 @@ import path from "path";
 import Upload from "../models/Upload.js";
 import Subscription from "../models/Subscription.js";
 import { extractSubscriptionFromFile } from "../services/documentExtractionService.js";
+import { createRemindersForSubscription } from "../services/reminderService.js";
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -33,7 +34,6 @@ export const extractSubscription = async (req, res) => {
       return res.status(404).json({ success: false, message: "Upload not found" });
     }
 
-    // duplicate / conflict handling
     if (upload.status === "processing") {
       return res.status(409).json({ success: false, message: "Extraction already in progress" });
     }
@@ -41,22 +41,19 @@ export const extractSubscription = async (req, res) => {
       return res.status(409).json({ success: false, message: "Extraction already completed", upload: sanitizeUpload(upload) });
     }
 
-    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
     if (!allowed.has(upload.mimeType)) {
-      return res.status(400).json({ success: false, message: "Unsupported file type" });
+      return res.status(400).json({ success: false, message: "Unsupported file type. Only JPEG, PNG and WEBP images are supported for extraction" });
     }
 
     const abs = path.resolve(upload.path);
-    // ponytail: path from DB only, never from client; resolve safely
     if (!fs.existsSync(abs)) {
-      // mark failed if file missing
       upload.status = "failed";
       await upload.save();
       return res.status(404).json({ success: false, message: "File not found" });
     }
 
-    // Atomic guard: set to processing
-    // Use findOneAndUpdate to prevent race
+    // Atomic lease: move to processing status
     const processingDoc = await Upload.findOneAndUpdate(
       { _id: upload._id, userId: req.user.userId, status: { $in: ["uploaded", "failed"] } },
       { $set: { status: "processing" } },
@@ -75,7 +72,6 @@ export const extractSubscription = async (req, res) => {
     try {
       extracted = await extractSubscriptionFromFile(abs, upload.mimeType);
     } catch (extErr) {
-      // Mark failed on any extraction error
       try {
         upload.status = "failed";
         await upload.save();
@@ -91,7 +87,6 @@ export const extractSubscription = async (req, res) => {
       if (extErr.isProviderError || extErr.name === "AbortError") {
         return res.status(500).json({ success: false, message: "AI provider failure", upload: sanitizeUpload(upload) });
       }
-      // validation / ambiguous date etc falls to 422, provider to 500
       const isValidation = extErr.message && /Invalid|ambiguous|required|Amount|Name/i.test(extErr.message);
       if (isValidation) {
         return res.status(422).json({ success: false, message: extErr.message, upload: sanitizeUpload(upload) });
@@ -99,19 +94,38 @@ export const extractSubscription = async (req, res) => {
       return res.status(500).json({ success: false, message: "Extraction failed", upload: sanitizeUpload(upload) });
     }
 
-    // Create subscription - server controls userId, status, etc.
+    // Check duplicate active subscription
+    const existingSub = await Subscription.findOne({
+      userId: req.user.userId,
+      name: new RegExp(`^${extracted.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      status: "active",
+    });
+
+    if (existingSub) {
+      upload.status = "processed";
+      await upload.save();
+      return res.status(200).json({
+        success: true,
+        message: "Subscription already exists in vault",
+        subscription: existingSub,
+        isExisting: true,
+        upload: sanitizeUpload(upload),
+      });
+    }
+
     let subscription;
     try {
       subscription = await Subscription.create({
         userId: req.user.userId,
         name: extracted.name,
         amount: extracted.amount,
-        currency: extracted.currency,
+        currency: extracted.currency || "INR",
         renewalDate: extracted.renewalDate,
         billingCycle: extracted.billingCycle,
-        category: extracted.category,
+        category: extracted.category || "General",
         status: "active",
       });
+      await createRemindersForSubscription(subscription);
     } catch (dbErr) {
       console.log(`[extraction] failed upload=${upload._id} reason=subscription create failed: ${dbErr.message}`);
       try {
@@ -133,7 +147,6 @@ export const extractSubscription = async (req, res) => {
     });
   } catch (err) {
     console.error("extractSubscription:", err.message);
-    // ensure not stuck in processing
     try {
       if (upload && upload.status === "processing") {
         upload.status = "failed";

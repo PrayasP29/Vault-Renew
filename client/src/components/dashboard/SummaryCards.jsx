@@ -2,10 +2,18 @@ import { formatMoney } from "../../lib/subscriptions.js";
 
 function Card({ label, value, hint }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="text-xs font-medium tracking-widest text-zinc-400">{label}</div>
-      <div className="mt-2 text-[22px] font-semibold tracking-tight tabular-nums">{value}</div>
-      {hint && <div className="mt-1 text-[11px] text-zinc-400">{hint}</div>}
+    <div className="rounded-2xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-4 sm:p-5 shadow-sm transition">
+      <div className="text-[11px] font-semibold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase">
+        {label}
+      </div>
+      <div className="mt-2 text-[22px] sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 tabular-nums">
+        {value}
+      </div>
+      {hint && (
+        <div className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
@@ -15,31 +23,31 @@ export default function SummaryCards({ summary, dueSoon, hasSubs }) {
     list.length ? list.map((m) => formatMoney(pick(m), m.currency)).join(" + ") : "—";
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <Card
-        label="ACTIVE"
+        label="Active Plans"
         value={summary.active}
-        hint={summary.cancelled ? `${summary.cancelled} cancelled` : "All in good standing"}
+        hint={summary.cancelled ? `${summary.cancelled} cancelled in vault` : "All plans active"}
       />
 
       <Card
-        label="MONTHLY · ESTIMATED"
+        label="Monthly Est."
         value={money(summary.monthly, (m) => m.amount)}
         hint={
           summary.customCycles
-            ? `Excludes ${summary.customCycles} custom cycle${summary.customCycles > 1 ? "s" : ""}`
+            ? `Excludes ${summary.customCycles} custom cycle`
             : "Monthly + quarterly/3 + yearly/12"
         }
       />
 
       <Card
-        label="YEARLY · ESTIMATED"
+        label="Yearly Est."
         value={money(summary.monthly, (m) => m.yearly)}
-        hint="Same basis, ×12"
+        hint="Projected annual expenditure"
       />
 
       <Card
-        label="DUE IN 30 DAYS"
+        label="Due in 30 Days"
         value={dueSoon}
         hint={hasSubs ? "Reminders fire at T-2 and T-1" : "Upload an invoice to begin"}
       />

@@ -4,7 +4,7 @@ import Reveal from "./Reveal.jsx";
 // bundui/faq1 adapted — single-open accordion, minimal
 const FAQS = [
   { q: "What is Vault-Renew?", a: "Vault-Renew keeps your subscriptions in one place and reminds you before they renew, so surprise charges don't sneak up on you." },
-  { q: "What can I upload?", a: "You can upload subscription invoices and screenshots in JPEG, JPG, PNG, WEBP or PDF. Vault-Renew extracts the useful renewal details for you. Image extraction works today; PDF extraction is coming later." },
+  { q: "What can I upload?", a: "You can upload subscription invoice images and screenshots in JPEG, JPG, PNG or WEBP. Vault-Renew extracts the renewal details for you." },
   { q: "How does Vault-Renew know when to remind me?", a: "Vault-Renew reads the renewal date from your uploaded document and schedules reminders 2 days and 1 day before that date." },
   { q: "Can I use it for multiple subscriptions?", a: "Yes. Each subscription is stored separately, so your streaming services, software plans and other recurring subscriptions can live in one place." },
   { q: "Will I receive notifications?", a: "Yes. Vault-Renew is built around real push notifications so renewal reminders can reach you without relying only on email. You control permission in your browser." },

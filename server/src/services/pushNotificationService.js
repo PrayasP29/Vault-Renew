@@ -62,10 +62,19 @@ export async function sendPushNotification({ userId, installationId, title, body
   }
 
   const normalizedData = normalizeData(data);
+  const messageData = {
+    ...(normalizedData || {}),
+    messageId: normalizedData?.messageId || normalizedData?.reminderId || `notification-${Date.now()}`,
+  };
 
   const message = {
-    notification: { title: cleanTitle, body: cleanBody },
-    ...(normalizedData ? { data: normalizedData } : {}),
+    // Data-only payloads ensure the service worker owns background display and
+    // the foreground listener owns focused-window display without duplicates.
+    data: {
+      ...messageData,
+      title: cleanTitle,
+      body: cleanBody,
+    },
     fid,
   };
 
@@ -87,7 +96,7 @@ export async function sendPushNotification({ userId, installationId, title, body
 
   try {
     const messageId = await getMessaging().send(message);
-    return { success: true, messageId, installationId: fid };
+    return { success: true, acceptedByFcm: true, messageId, installationId: fid };
   } catch (err) {
     const code = err?.code || err?.errorInfo?.code || "";
     // safe logging — never log fid or payload
@@ -116,20 +125,20 @@ export async function sendPushNotification({ userId, installationId, title, body
           await existing.save();
         }
       } catch {}
-      return { success: false, reason: "device-invalid" };
+      return { success: false, acceptedByFcm: false, reason: "device-invalid" };
     }
 
     // auth / permission / unavailable — do not disable, return controlled reason
     if (code.includes("authentication-error") || code.includes("mismatched-credential")) {
-      return { success: false, reason: "firebase-auth-error" };
+      return { success: false, acceptedByFcm: false, reason: "firebase-auth-error" };
     }
     if (code.includes("permission")) {
-      return { success: false, reason: "firebase-permission-error" };
+      return { success: false, acceptedByFcm: false, reason: "firebase-permission-error" };
     }
     if (code.includes("server-unavailable") || code.includes("unavailable") || code.includes("internal-error") || code.includes("unknown-error")) {
-      return { success: false, reason: "firebase-unavailable" };
+      return { success: false, acceptedByFcm: false, reason: "firebase-unavailable" };
     }
 
-    return { success: false, reason: "firebase-error" };
+    return { success: false, acceptedByFcm: false, reason: "firebase-error" };
   }
 }

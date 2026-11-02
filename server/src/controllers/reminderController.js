@@ -29,3 +29,25 @@ export const getReminders = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+export const clearSentReminders = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const result = await Reminder.deleteMany({
+      userId,
+      status: "sent",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Cleared ${result.deletedCount} sent reminder${result.deletedCount === 1 ? "" : "s"}`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (err) {
+    console.error("clearSentReminders:", err.message);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};

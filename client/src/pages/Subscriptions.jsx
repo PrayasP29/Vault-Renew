@@ -49,26 +49,37 @@ export default function Subscriptions() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Subscriptions</h1>
-          <p className="mt-1 text-sm text-zinc-500">{subs.length} in your vault, sorted by renewal date</p>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Subscriptions
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            {subs.length} active plan{subs.length === 1 ? "" : "s"} in your vault, sorted by renewal date
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setEditing("new")}
-            className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+            className="rounded-full bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-xs sm:text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition shadow-sm"
           >
             Add manually
           </button>
-          <Link to="/upload" className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-50">
+          <Link
+            to="/upload"
+            className="rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+          >
             Upload invoice
           </Link>
         </div>
       </div>
 
-      {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
       {editing && (
         <SubscriptionForm
@@ -82,12 +93,15 @@ export default function Subscriptions() {
           error={formError}
         />
       )}
+
       {!editing && formError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
+        <div className="rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+          {formError}
+        </div>
       )}
 
       {loading ? (
-        <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500 shadow-sm">
+        <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-12 text-center text-sm text-zinc-500 dark:text-zinc-400 shadow-sm animate-pulse">
           Loading subscriptions…
         </div>
       ) : (

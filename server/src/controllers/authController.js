@@ -8,14 +8,18 @@ import {
   generateRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt.js";
+import { hashRefreshToken } from "../utils/tokenHash.js";
 
 const hashToken = (raw) =>
   crypto.createHash("sha256").update(raw).digest("hex");
+
+const GRACE_WINDOW_MS = 30 * 1000;
 
 const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50),
   email: z.string().trim().email("Invalid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  timezone: z.string().trim().max(100).optional(),
 });
 
 const resendSchema = z.object({
@@ -34,7 +38,7 @@ const changePasswordSchema = z.object({
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = registerSchema.parse(req.body);
+    const { name, email, password, timezone } = registerSchema.parse(req.body);
     const normalizedEmail = email.toLowerCase().trim();
 
     const existing = await User.findOne({ email: normalizedEmail });
@@ -49,8 +53,8 @@ export const register = async (req, res) => {
       const rawToken = crypto.randomBytes(32).toString("hex");
       existing.emailVerificationToken = hashToken(rawToken);
       existing.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-      // keep original name/password; update name if provided
       existing.name = name;
+      if (timezone) existing.timezone = timezone;
       await existing.save();
 
       try {
@@ -80,6 +84,7 @@ export const register = async (req, res) => {
       password: hashedPassword,
       emailVerificationToken: hashed,
       emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
+      timezone: timezone || "Asia/Kolkata",
     });
 
     await user.save();
@@ -176,7 +181,6 @@ export const resendVerification = async (req, res) => {
       return res.status(200).json(genericResponse);
     }
 
-    // ponytail: naive rate-limit via expiry window, no infra; 1 req/min ceiling
     if (
       user.emailVerificationExpires &&
       user.emailVerificationExpires.getTime() > Date.now() + 14 * 60 * 1000
@@ -239,8 +243,8 @@ export const login = async (req, res) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // ponytail: single refresh token per user, array if multi-device needed
-    user.refreshToken = refreshToken;
+    user.refreshToken = hashRefreshToken(refreshToken);
+    user.refreshTokenHistory = [];
     await user.save();
 
     return res.status(200).json({
@@ -261,7 +265,7 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select(
-      "-password -emailVerificationToken -emailVerificationExpires -refreshToken -__v"
+      "-password -emailVerificationToken -emailVerificationExpires -refreshToken -refreshTokenHistory -__v"
     );
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -294,13 +298,58 @@ export const refresh = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid refresh token" });
     }
 
-    const user = await User.findById(decoded.userId);
-    if (!user || !user.refreshToken || user.refreshToken !== token) {
-      return res.status(401).json({ success: false, message: "Refresh token revoked" });
+    const tokenHash = hashRefreshToken(token);
+    const newRefreshToken = generateRefreshToken(decoded.userId);
+    const newHashed = hashRefreshToken(newRefreshToken);
+
+    // Atomic rotation attempt: replace active refreshToken with newHashed and push tokenHash to history
+    const user = await User.findOneAndUpdate(
+      { _id: decoded.userId, refreshToken: tokenHash },
+      {
+        $set: { refreshToken: newHashed },
+        $push: {
+          refreshTokenHistory: {
+            $each: [{ hash: tokenHash, rotatedAt: new Date() }],
+            $slice: -20,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (user) {
+      const accessToken = generateAccessToken(user._id);
+      return res.status(200).json({
+        success: true,
+        accessToken,
+        refreshToken: newRefreshToken,
+      });
     }
 
-    const newAccessToken = generateAccessToken(user._id);
-    return res.status(200).json({ success: true, accessToken: newAccessToken });
+    // Winner was not this caller. Check if token was rotated inside or outside grace window.
+    const existing = await User.findById(decoded.userId);
+    if (!existing) {
+      return res.status(401).json({ success: false, message: "Invalid refresh token" });
+    }
+
+    const historyEntry = existing.refreshTokenHistory?.find((h) => h.hash === tokenHash);
+    if (historyEntry) {
+      const age = Date.now() - new Date(historyEntry.rotatedAt).getTime();
+      if (age <= GRACE_WINDOW_MS) {
+        return res.status(401).json({
+          success: false,
+          message: "Refresh token already used. Please wait for the current session.",
+        });
+      }
+      // Replay after grace window: reuse detected -> revoke active session
+      await User.updateOne({ _id: decoded.userId }, { $unset: { refreshToken: 1 } });
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token reuse detected. Session revoked.",
+      });
+    }
+
+    return res.status(401).json({ success: false, message: "Invalid or revoked refresh token" });
   } catch (error) {
     console.error("Refresh error:", error.message);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -321,8 +370,8 @@ export const changePassword = async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
-    // revoke the refresh token so every other session must sign in again
     user.refreshToken = undefined;
+    user.refreshTokenHistory = [];
     await user.save();
 
     return res
@@ -352,19 +401,14 @@ export const logout = async (req, res) => {
     try {
       decoded = verifyRefreshToken(token);
     } catch (err) {
-      // still try to clear if token was once valid but now expired/invalid -> treat as revoked
       return res.status(401).json({ success: false, message: "Invalid refresh token" });
     }
 
-    const user = await User.findById(decoded.userId);
-    if (!user) {
-      return res.status(200).json({ success: true, message: "Logged out successfully" });
-    }
-
-    if (user.refreshToken === token) {
-      user.refreshToken = undefined;
-      await user.save();
-    }
+    const tokenHash = hashRefreshToken(token);
+    await User.updateOne(
+      { _id: decoded.userId, refreshToken: tokenHash },
+      { $unset: { refreshToken: 1 } }
+    );
 
     return res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {

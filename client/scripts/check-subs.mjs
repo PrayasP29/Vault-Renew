@@ -6,6 +6,7 @@ import {
   daysUntil,
   upcomingRenewals,
   formatMoney,
+  formatDate,
   toDateInput,
 } from "../src/lib/subscriptions.js";
 
@@ -63,5 +64,19 @@ assert.ok(formatMoney(10, "NOT_A_CODE").includes("10"));
 
 // date input round-trip stays local
 assert.equal(toDateInput(new Date(2026, 11, 31)), "2026-12-31");
+
+// server date-only strings keep their calendar day, never shift through UTC
+const todayKey = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+const tomorrowKey = todayKey(tomorrow);
+assert.equal(toDateInput("2026-12-31T00:00:00.000Z"), "2026-12-31");
+assert.equal(daysUntil(todayKey()), 0);
+assert.equal(daysUntil(tomorrowKey), 1);
+assert.equal(
+  formatDate("2026-12-31T00:00:00.000Z"),
+  new Date(2026, 11, 31).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })
+);
 
 console.log("subscriptions math OK");

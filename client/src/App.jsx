@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
@@ -13,37 +15,57 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Subscriptions from "./pages/Subscriptions.jsx";
 import Reminders from "./pages/Reminders.jsx";
 import Settings from "./pages/Settings.jsx";
+import { installForegroundNotifications } from "./services/notificationService.js";
+import { useAuth } from "./context/AuthContext.jsx";
+
+function AuthenticatedNotifications() {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const listener = installForegroundNotifications();
+    if (listener.reason) {
+      console.warn("[notifications] foreground listener unavailable:", listener.reason);
+    }
+    return listener.unsubscribe;
+  }, [isAuthenticated]);
+
+  return null;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/upload" element={<UploadPage />} />
-          <Route path="/notification-test" element={<NotificationTest />} />
+      <ThemeProvider>
+        <AuthProvider>
+          <AuthenticatedNotifications />
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/upload" element={<UploadPage />} />
+            <Route path="/notification-test" element={<NotificationTest />} />
 
-          {/* one guard for the whole authenticated app */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/subscriptions" element={<Subscriptions />} />
-            <Route path="/dashboard/reminders" element={<Reminders />} />
-            <Route path="/dashboard/settings" element={<Settings />} />
-          </Route>
+            {/* one guard for the whole authenticated app */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/subscriptions" element={<Subscriptions />} />
+              <Route path="/dashboard/reminders" element={<Reminders />} />
+              <Route path="/dashboard/settings" element={<Settings />} />
+            </Route>
 
-          <Route path="/dashboard/*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </AuthProvider>
+            <Route path="/dashboard/*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

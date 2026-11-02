@@ -1,7 +1,25 @@
 // pure helpers for the dashboard — no React, no API, so they stay testable
 const MS_DAY = 86400000;
 
-const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+// Display a date-only string on its own calendar day instead of shifting it.
+function calendarDate(value) {
+  if (typeof value === "string") {
+    const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return new Date(value);
+}
+
+// Renewal dates arrive as date-only calendar dates ("YYYY-MM-DD" or midnight ISO).
+// Compare their UTC calendar day with today's local calendar day, never by timestamp.
+function utcCalendarDay(value) {
+  if (typeof value === "string") {
+    const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  const d = new Date(value);
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
 // ponytail: monthly/yearly math only for cycles the data actually defines. "custom" has no
 // period stored, so it is excluded from totals (and counted) instead of being faked
@@ -23,7 +41,9 @@ export function isActive(sub) {
 }
 
 export function daysUntil(dateStr) {
-  return Math.round((startOfDay(new Date(dateStr)) - startOfDay(new Date())) / MS_DAY);
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((utcCalendarDay(dateStr) - today) / MS_DAY);
 }
 
 export function activeSubs(subs) {
@@ -81,15 +101,20 @@ export function formatMoney(amount, currency) {
 }
 
 export function formatDate(value) {
-  return new Date(value).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  return calendarDate(value).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function formatDayMonth(value) {
-  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return calendarDate(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-// for <input type="date"> — local date, not toISOString() which shifts by timezone
+// for <input type="date"> - a server date string is already the calendar date;
+// a Date object keeps its local components instead of shifting through UTC.
 export function toDateInput(value) {
+  if (typeof value === "string") {
+    const m = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
   const d = new Date(value);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

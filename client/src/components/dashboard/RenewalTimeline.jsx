@@ -3,15 +3,22 @@ import { formatDayMonth, formatMoney } from "../../lib/subscriptions.js";
 // groups real renewal dates into month buckets, oldest first
 const monthKey = (value) => {
   const d = new Date(value);
-  return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) };
+  return {
+    key: `${d.getFullYear()}-${d.getMonth()}`,
+    label: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+  };
 };
 
 export default function RenewalTimeline({ subs }) {
   if (subs.length === 0) {
     return (
-      <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-tight">Renewal timeline</h2>
-        <p className="mt-2 text-sm text-zinc-500">Your timeline fills in once you have active subscriptions.</p>
+      <div className="rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 sm:p-6 shadow-sm transition">
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Renewal Timeline
+        </h2>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Your timeline fills in once you have active subscriptions.
+        </p>
       </div>
     );
   }
@@ -24,28 +31,40 @@ export default function RenewalTimeline({ subs }) {
     else groups.push({ key, label, items: [s] });
   }
 
-  // bar length is relative to the largest amount in view, not a hardcoded scale
   const max = Math.max(...subs.map((s) => s.amount), 1);
 
   return (
-    <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-semibold tracking-tight">Renewal timeline</h2>
-      <p className="mt-1 text-xs text-zinc-500">Next {subs.length} renewals, in date order</p>
+    <div className="rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 sm:p-6 shadow-sm transition">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            Renewal Timeline
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            Next {subs.length} renewal{subs.length === 1 ? "" : "s"} in chronological order
+          </p>
+        </div>
+      </div>
 
-      <div className="mt-4 space-y-5">
+      <div className="mt-4 space-y-4">
         {groups.map((g) => (
-          <div key={g.key}>
-            <div className="text-[11px] font-semibold tracking-widest text-zinc-400">{g.label}</div>
-            <div className="mt-2 space-y-2">
+          <div key={g.key} className="space-y-2">
+            <div className="text-[11px] font-semibold tracking-wider uppercase text-zinc-400 dark:text-zinc-500">
+              {g.label}
+            </div>
+            <div className="space-y-2.5">
               {g.items.map((s) => (
                 <div key={s._id || s.id} className="flex items-center gap-3">
-                  <div className="w-[52px] shrink-0 text-xs font-medium tabular-nums text-zinc-600">
+                  <div className="w-[52px] shrink-0 text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-400">
                     {formatDayMonth(s.renewalDate)}
                   </div>
-                    <div className="h-1.5 flex-1 rounded-full bg-zinc-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-zinc-900" style={{ width: `${Math.max(6, (s.amount / max) * 100)}%` }} />
-                    </div>
-                  <div className="w-[120px] shrink-0 truncate text-right text-xs text-zinc-600">
+                  <div className="h-1.5 flex-1 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-zinc-900 dark:bg-zinc-200 transition-all duration-300"
+                      style={{ width: `${Math.max(6, (s.amount / max) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="w-[130px] shrink-0 truncate text-right text-xs font-medium text-zinc-700 dark:text-zinc-300">
                     {s.name} · {formatMoney(s.amount, s.currency)}
                   </div>
                 </div>

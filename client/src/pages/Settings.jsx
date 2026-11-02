@@ -4,14 +4,15 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../services/api.js";
 import NotificationSettings from "../components/dashboard/NotificationSettings.jsx";
 
-const field = "mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-900";
-const label = "text-xs font-medium text-zinc-700";
+const field =
+  "mt-1 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-900 dark:focus:border-zinc-400 transition";
+const label = "text-xs font-medium text-zinc-700 dark:text-zinc-300";
 
 function Row({ k, v }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1 border-b border-zinc-100 py-2.5 last:border-0">
-      <span className="text-xs text-zinc-500 sm:w-[140px]">{k}</span>
-      <span className="text-sm font-medium break-all">{v}</span>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-zinc-100 dark:border-zinc-800 py-3 last:border-0">
+      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:w-[160px]">{k}</span>
+      <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 break-all">{v}</span>
     </div>
   );
 }
@@ -44,7 +45,6 @@ export default function Settings() {
       setCurrent("");
       setNext("");
       setConfirm("");
-      // server revokes the refresh token on change, so this session is finished
       await logout();
       navigate("/login", { replace: true, state: { changed: true } });
     } catch (err) {
@@ -60,67 +60,129 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-zinc-500">Profile, security and notification devices</p>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Account Settings
+        </h1>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Manage your vault identity, credentials and notification devices.
+        </p>
       </div>
 
-      <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-tight">Profile</h2>
-        <p className="mt-1 text-xs text-zinc-500">Identity comes from your verified account — not editable here.</p>
-        <div className="mt-3">
+      {/* Profile Section */}
+      <div className="rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 sm:p-6 shadow-sm transition">
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Vault Profile
+        </h2>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          Identity information associated with this account.
+        </p>
+        <div className="mt-4">
           <Row k="Name" v={user?.name || "—"} />
-          <Row k="Email" v={user?.email || "—"} />
-          {/* userId straight from /auth/me — the frontend never supplies it */}
-          <Row k="User ID" v={user?._id || user?.id || "—"} />
+          <Row k="Email Address" v={user?.email || "—"} />
+          <Row k="Account ID" v={user?._id || user?.id || "—"} />
+          <Row k="Timezone" v={user?.timezone || "Asia/Kolkata (Default)"} />
           <Row
-            k="Email status"
+            k="Verification Status"
             v={
-              <span className={user?.emailVerified ? "text-emerald-700" : "text-amber-700"}>
-                {user?.emailVerified ? "verified" : "not verified"}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                  user?.emailVerified
+                    ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                    : "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    user?.emailVerified ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                />
+                {user?.emailVerified ? "Verified" : "Unverified"}
               </span>
             }
           />
         </div>
       </div>
 
-      <form onSubmit={changePassword} className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-tight">Security</h2>
-        <p className="mt-1 text-xs text-zinc-500">Changing your password signs you out of every session.</p>
+      {/* Security: Change Password */}
+      <form
+        onSubmit={changePassword}
+        className="rounded-3xl border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 sm:p-6 shadow-sm transition"
+      >
+        <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Security & Password
+        </h2>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          Changing your password invalidates all current refresh token sessions across all devices.
+        </p>
 
-        <div className="mt-4 grid sm:grid-cols-2 gap-3">
+        <div className="mt-4 grid sm:grid-cols-2 gap-3.5">
           <div className="sm:col-span-2">
-            <label className={label}>Current password</label>
-            <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" className={field} />
+            <label className={label}>Current Password</label>
+            <input
+              type="password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className={field}
+            />
           </div>
           <div>
-            <label className={label}>New password</label>
-            <input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" className={field} />
+            <label className={label}>New Password</label>
+            <input
+              type="password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Min 8 characters"
+              className={field}
+            />
           </div>
           <div>
-            <label className={label}>Confirm new password</label>
-            <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" className={field} />
+            <label className={label}>Confirm New Password</label>
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Repeat new password"
+              className={field}
+            />
           </div>
         </div>
 
-        {error && <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        {done && <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{done}</div>}
+        {error && (
+          <div className="mt-3.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3.5 py-2 text-xs text-red-700 dark:text-red-400">
+            {error}
+          </div>
+        )}
+        {done && (
+          <div className="mt-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 px-3.5 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+            {done}
+          </div>
+        )}
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-5 flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
           <button
             type="submit"
             disabled={busy || !current || !next || !confirm}
-            className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-40"
+            className="rounded-full bg-zinc-900 dark:bg-zinc-100 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 transition shadow-sm"
           >
-            {busy ? "Updating…" : "Change password"}
+            {busy ? "Updating Password…" : "Update Password"}
           </button>
-          <button type="button" onClick={signOut} className="rounded-full border border-zinc-200 px-5 py-2.5 text-sm font-medium hover:bg-zinc-50">
-            Logout
+          <button
+            type="button"
+            onClick={signOut}
+            className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-2 text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition"
+          >
+            Sign Out
           </button>
         </div>
       </form>
 
+      {/* Notification Devices */}
       <NotificationSettings />
     </div>
   );

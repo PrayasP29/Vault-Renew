@@ -1,24 +1,26 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import extractionRoutes from "./routes/extractionRoutes.js";
-import mongoose from "mongoose";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reminderRoutes from "./routes/reminderRoutes.js";
 import devRoutes from "./routes/devRoutes.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminderScheduler.js";
+import { ensureReminderIndexes } from "./services/reminderService.js";
+import { reconcileUploadUsage } from "./services/uploadQuota.js";
 
 dotenv.config();
 
-// ponytail: dynamic import ensures env loaded before Admin init; static import would init before dotenv
 await import("./config/firebaseAdmin.js");
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 
@@ -38,13 +40,19 @@ const PORT = process.env.PORT || 5000;
 
 await connectDB();
 
+try {
+  await ensureReminderIndexes();
+  await reconcileUploadUsage();
+} catch (startupErr) {
+  console.warn("[server] Startup reconciliation note:", startupErr.message);
+}
+
 startReminderScheduler();
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// ponytail: lightweight graceful shutdown, no framework
 const shutdown = async (signal) => {
   console.log(`[shutdown] ${signal}`);
   stopReminderScheduler();
@@ -55,7 +63,6 @@ const shutdown = async (signal) => {
     } catch {}
     process.exit(0);
   });
-  // force exit if not closed in 10s
   setTimeout(() => process.exit(1), 10000).unref();
 };
 

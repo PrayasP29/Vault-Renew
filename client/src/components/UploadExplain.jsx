@@ -13,7 +13,7 @@ export default function UploadExplain() {
               Drag your subscription receipt onto the upload zone. Vault-Renew keeps the file tied to your account, runs extraction for image formats, and shows you the renewal details before anything is saved.
             </p>
             <ul className="mt-4 space-y-2 text-[13px] leading-5 text-white/70">
-              <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/60 shrink-0"/> Supported: JPEG, JPG, PNG, WEBP, PDF (PDF extraction later)</li>
+              <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/60 shrink-0"/> Supported: JPEG, JPG, PNG, WEBP (images only)</li>
               <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/60 shrink-0"/> Max 10MB · One file at a time</li>
               <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/60 shrink-0"/> If extraction is uncertain, we tell you — we never guess quietly</li>
             </ul>
@@ -29,7 +29,7 @@ export default function UploadExplain() {
             <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] p-6 text-center">
               <div className="mx-auto h-10 w-10 rounded-xl bg-white text-zinc-900 grid place-items-center text-sm">↑</div>
               <div className="mt-3 text-sm font-semibold text-white">Upload your subscription invoice</div>
-              <div className="text-xs text-white/60 mt-1">JPEG · JPG · PNG · WEBP · PDF · 10MB</div>
+              <div className="text-xs text-white/60 mt-1">JPEG · JPG · PNG · WEBP · 10MB</div>
               <div className="mt-4 inline-flex rounded-full bg-white text-zinc-900 px-4 py-2 text-xs font-medium">Drag & drop or click to browse</div>
             </div>
             <div className="mt-4 rounded-xl border border-white/10 bg-zinc-900 text-white p-4 flex items-center justify-between">
