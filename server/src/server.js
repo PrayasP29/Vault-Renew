@@ -1,6 +1,6 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -14,14 +14,34 @@ import { startReminderScheduler, stopReminderScheduler } from "./services/remind
 import { ensureReminderIndexes } from "./services/reminderService.js";
 import { reconcileUploadUsage } from "./services/uploadQuota.js";
 
-dotenv.config();
-
 await import("./config/firebaseAdmin.js");
 
 const app = express();
 
 app.set("trust proxy", 1);
-app.use(cors());
+const configuredOrigins = (process.env.FRONTEND_URLS || "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:4173",
+  ...configuredOrigins,
+  ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL.trim().replace(/\/+$/, "")] : []),
+]);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new Error("Origin not allowed by CORS"));
+  },
+  credentials: false,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 app.get("/api/health", (req, res) => {
@@ -35,6 +55,14 @@ app.use("/api/uploads", extractionRoutes);
 app.use("/api/notifications/devices", notificationRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/dev", devRoutes);
+
+app.use((err, req, res, next) => {
+  if (err?.message === "Origin not allowed by CORS") {
+    return res.status(403).json({ success: false, message: "Origin not allowed" });
+  }
+  console.error("[server] Unhandled error:", err?.message || err);
+  return res.status(500).json({ success: false, message: "Internal server error" });
+});
 
 const PORT = process.env.PORT || 5000;
 

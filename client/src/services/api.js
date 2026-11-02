@@ -2,10 +2,12 @@ import axios from "axios";
 
 // no localhost fallback on purpose: a production bundle must never quietly point at
 // localhost. Fail loudly instead, and name the file to fix.
-const API_BASE = import.meta.env.VITE_API_URL;
+const configuredApiBase =
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+const API_BASE = configuredApiBase?.trim().replace(/\/+$/, "").replace(/\/api$/, "");
 if (!API_BASE) {
   throw new Error(
-    "VITE_API_URL is not set. Add VITE_API_URL=http://localhost:5000 to client/.env (see client/.env.example)."
+    "VITE_API_BASE_URL is not set. Add VITE_API_BASE_URL=http://localhost:5000 to client/.env (see client/.env.example)."
   );
 }
 
